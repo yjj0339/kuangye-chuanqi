@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旷野传说 · 回合制冒险</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 开始界面 -->
+<div id="start-screen">
+  <div class="start-card">
+    <div class="start-logo">⚔️</div>
+    <h1>旷野传说</h1>
+    <p class="start-sub">回合制冒险 · 随机装备 · 锻造养成 · 六档野怪</p>
+    <div class="start-btns">
+      <button id="btn-continue" class="btn btn-primary hidden">▶ 继续冒险</button>
+      <button id="btn-new" class="btn btn-green">✦ 新的征程</button>
+    </div>
+    <div class="start-help">
+      <p>🗺️ 六张野外地图，从微风草原杀到苍穹神殿</p>
+      <p>👹 普通 / 精英 / BOSS / 暗金小Boss / 关卡大Boss / 终极Boss</p>
+      <p>💎 装备随机词条，锻造强化 +15，洗练打造暗金神装</p>
+      <p>💾 进度自动保存在本机浏览器</p>
+    </div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="app" class="hidden">
+  <header id="topbar">
+    <div class="tb-left">
+      <span class="tb-title">⚔️ 旷野传说</span>
+      <span id="tb-hero" class="tb-hero"></span>
+    </div>
+    <div class="tb-right">
+      <span id="tb-gold" class="tb-gold"></span>
+      <span id="tb-save" class="tb-save"></span>
+      <button id="btn-save" class="btn btn-mini">💾 保存</button>
+      <button id="btn-rest" class="btn btn-mini" title="免费回满生命与法力">🏕️ 休息</button>
+    </div>
+  </header>
+  <div id="expbar"><div id="expbar-fill"></div><span id="expbar-text"></span></div>
+
+  <nav id="tabs">
+    <button class="tab active" data-tab="map">🗺️ 战斗</button>
+    <button class="tab" data-tab="hero">🧑‍🚀 角色</button>
+    <button class="tab" data-tab="bag">🎒 背包 <span id="bag-count" class="badge"></span></button>
+    <button class="tab" data-tab="skill">✨ 技能 <span id="sp-count" class="badge"></span></button>
+    <button class="tab" data-tab="forge">🔨 锻造</button>
+    <button class="tab" data-tab="shop">🏪 商店</button>
+  </nav>
+
+  <main id="main">
+    <section id="tab-map" class="panel"></section>
+    <section id="tab-hero" class="panel hidden"></section>
+    <section id="tab-bag" class="panel hidden"></section>
+    <section id="tab-skill" class="panel hidden"></section>
+    <section id="tab-forge" class="panel hidden"></section>
+    <section id="tab-shop" class="panel hidden"></section>
+  </main>
+</div>
+
+<!-- 战斗界面 -->
+<div id="battle-overlay" class="hidden">
+  <div id="battle-box">
+    <div id="battle-head">
+      <span id="battle-round">第 1 回合</span>
+      <span id="battle-turn" class="battle-turn"></span>
+    </div>
+    <div id="enemy-row"></div>
+    <div id="battle-mid">
+      <div id="hero-panel"></div>
+      <div id="battle-log-wrap"><div id="battle-log"></div></div>
+    </div>
+    <div id="battle-actions"></div>
+    <div id="battle-sub" class="hidden"></div>
+  </div>
+</div>
+
+<!-- 结算 / 通用弹窗 -->
+<div id="modal-mask" class="hidden"><div id="modal"></div></div>
+<div id="toasts"></div>
+
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
