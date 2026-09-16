@@ -240,3 +240,40 @@ D.enhanceCost = (plus, ilv) => ({
   stone: Math.max(1, Math.round((plus+1) * (plus >= 8 ? 2 : 1))),
 });
 D.enhanceFail = plus => plus >= 8 ? -1 : 0; // +8 以上失败掉 1 级
+
+/* ---------- 无尽试炼塔 ---------- */
+D.TOWER_MOBS = [
+  { name:'试炼傀儡', icon:'🤖', mod:{def:1.2} },
+  { name:'石像鬼',   icon:'🗿', mod:{hp:1.15,spd:0.9} },
+  { name:'暗影狼',   icon:'🐺', mod:{spd:1.2,atk:1.05} },
+  { name:'塔灵',     icon:'🔮', mod:{atk:1.15} },
+  { name:'岩魔',     icon:'🪨', mod:{hp:1.2,def:1.15,spd:0.85} },
+  { name:'风灵',     icon:'🌪️', mod:{spd:1.25} },
+  { name:'焰灵',     icon:'🔥', mod:{atk:1.2,hp:0.9} },
+  { name:'冰灵',     icon:'🧊', mod:{def:1.25} },
+];
+D.TOWER_MASTERS = ['石巨人王','傀儡统帅','风暴之眼','熔核守卫','寒冰魔像','虚空行者'];
+D.towerLv = fl => Math.round(4 + fl*1.6);
+
+/* ---------- 成就 ---------- */
+/* prog: [当前值, 目标值]；reward: gold 与材料 */
+D.ACHIEVEMENTS = [
+  { id:'k1',     icon:'🗡️', name:'初出茅庐',   desc:'击败第 1 只怪物',            prog:s=>[s.stats.kills,1],      reward:{gold:50} },
+  { id:'k100',   icon:'⚔️', name:'斩妖百计',   desc:'累计击败 100 只怪物',        prog:s=>[s.stats.kills,100],    reward:{gold:200} },
+  { id:'k500',   icon:'🏹', name:'屠魔五百',   desc:'累计击败 500 只怪物',        prog:s=>[s.stats.kills,500],    reward:{gold:500, mats:{enhance:5}} },
+  { id:'k2000',  icon:'💀', name:'旷野死神',   desc:'累计击败 2000 只怪物',       prog:s=>[s.stats.kills,2000],   reward:{gold:1500, mats:{crystal:10}} },
+  { id:'e10',    icon:'🎯', name:'精英猎手',   desc:'击败 10 只精英怪',           prog:s=>[s.stats.elite,10],     reward:{gold:150} },
+  { id:'b5',     icon:'👹', name:'BOSS 克星',  desc:'击败 5 只 BOSS',             prog:s=>[s.stats.boss,5],       reward:{mats:{reroll:2}} },
+  { id:'d1',     icon:'🌟', name:'暗金猎人',   desc:'击败 1 只暗金小Boss',        prog:s=>[s.stats.darkgold,1],   reward:{mats:{enhance:3}} },
+  { id:'d10',    icon:'💫', name:'暗金收藏家', desc:'击败 10 只暗金小Boss',       prog:s=>[s.stats.darkgold,10],  reward:{mats:{essence:2}} },
+  { id:'st1',    icon:'🏁', name:'初露锋芒',   desc:'击败 1 个关卡大Boss',        prog:s=>[s.stats.stage,1],      reward:{gold:300} },
+  { id:'st6',    icon:'👑', name:'六域征服者', desc:'击败全部 6 个关卡大Boss',    prog:s=>[s.stats.stage,6],      reward:{gold:1000, mats:{essence:3}} },
+  { id:'clear',  icon:'🐲', name:'屠龙勇者',   desc:'击败终极 Boss 苍穹龙王',     prog:s=>[s.flags.gameClear?1:0,1], reward:{gold:2000, mats:{essence:5}} },
+  { id:'eh10',   icon:'🔨', name:'小铁匠',     desc:'成功强化 10 次',             prog:s=>[s.stats.enhanced,10],  reward:{mats:{enhance:5}} },
+  { id:'eh15',   icon:'⚒️', name:'神匠在世',   desc:'拥有 1 件 +15 装备',         prog:s=>[ (D.SLOT_ORDER.some(sl=>s.hero.equip[sl]&&(s.hero.equip[sl].plus||0)>=15)||s.inv.some(it=>(it.plus||0)>=15))?1:0 ,1], reward:{mats:{enhance:10}} },
+  { id:'cf20',   icon:'🛠️', name:'打造达人',   desc:'累计打造 20 件装备',         prog:s=>[s.stats.crafted,20],   reward:{mats:{iron:20,hide:10}} },
+  { id:'tw10',   icon:'🗼', name:'试炼新星',   desc:'无尽试炼到达第 10 层',       prog:s=>[s.tower?s.tower.best:0,10], reward:{gold:500} },
+  { id:'tw25',   icon:'🌌', name:'试炼王者',   desc:'无尽试炼到达第 25 层',       prog:s=>[s.tower?s.tower.best:0,25], reward:{mats:{essence:3}} },
+  { id:'lv45',   icon:'🎖️', name:'登峰造极',   desc:'角色达到满级 Lv.45',         prog:s=>[s.hero.lv,45],         reward:{gold:3000} },
+  { id:'rich',   icon:'💰', name:'腰缠万贯',   desc:'持有 10 万金币',             prog:s=>[s.gold,100000],        reward:{mats:{reroll:3}} },
+];
