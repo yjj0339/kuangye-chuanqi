@@ -8,7 +8,8 @@ const B = {
 };
 
 B.sleep = ms => new Promise(r=>setTimeout(r, ms));
-B.delay = () => B.sleep(620);
+B.speed = () => (G.state && G.state.settings && G.state.settings.speed) || 1;
+B.delay = () => B.sleep(Math.round(620 / B.speed()));
 
 /* ---------- 属性快照与加成 ---------- */
 B.effAtk = u => u.stats.atk * (1 + B.buffSum(u,'atkUp'));
@@ -135,9 +136,41 @@ B.checkDeaths = function(){
 B.heroTurn = function(){
   return new Promise(res=>{
     this._wait = res;
+    if (G.state.settings && G.state.settings.auto){
+      UI.battle.setTurn('🤖 自动战斗中…');
+      UI.battle.actions();
+      setTimeout(()=> this.autoResolve(), Math.round(420 / B.speed()));
+      return;
+    }
     UI.battle.setTurn('你的回合 — 选择行动');
     UI.battle.actions();
   });
+};
+
+/* 自动战斗：低血喝药/治疗，否则放最高倍率技能，没蓝普攻 */
+B.autoResolve = function(){
+  if (!this._wait) return;
+  const c = this.autoChoice();
+  this.act(c.kind, c.payload);
+};
+B.autoChoice = function(){
+  const h = this.hero, pots = G.state.hero.potions;
+  if (h.hp < h.stats.maxHp * 0.3){
+    const pid = ['hp3','hp2','hp1'].find(p=>pots[p]>0);
+    if (pid) return { kind:'potion', payload:pid };
+    const healSid = ['revive','heal'].find(sid=>G.state.hero.skills[sid] && (h.cds[sid]||0)<=0 && h.mp>=D.SKILLS[sid].mp);
+    if (healSid) return { kind:'skill', payload:healSid };
+  }
+  let best=null, bestMult=1;
+  for (const sid in G.state.hero.skills){
+    const d = D.SKILLS[sid], lv = G.state.hero.skills[sid];
+    if (!d.mult) continue;
+    if ((h.cds[sid]||0) > 0 || h.mp < d.mp) continue;
+    const m = d.mult(lv) * (d.hits||1);
+    if (m > bestMult){ bestMult = m; best = sid; }
+  }
+  if (best) return { kind:'skill', payload:best };
+  return { kind:'attack' };
 };
 
 /* UI 调用：玩家选择了行动 */
@@ -192,10 +225,12 @@ B.act = async function(kind, payload){
   if (!this.over) done();
 };
 
-/* 单体目标选择（多敌时点选，单敌自动） */
+/* 单体目标选择（多敌时点选，单敌/自动战斗自动） */
 B.pickTarget = function(){
   const alive = this.aliveFoes();
   if (alive.length === 1) return Promise.resolve(alive[0]);
+  if (G.state.settings && G.state.settings.auto)
+    return Promise.resolve(alive.slice().sort((a,b)=>b.hp-a.hp)[0]);
   return new Promise(res=>{
     UI.battle.pickTarget(alive, t=>res(t));
   });
@@ -307,8 +342,10 @@ B.finish = async function(win){
   await B.sleep(500);
   if (win){
     const rewards = G.applyRewards(this.foes);
+    let towerWin = null;
+    if (this.enc.type === 'tower') towerWin = G.applyTowerWin(this.enc.floor);
     this.syncHero();
-    UI.battle.showResult(rewards, this.enc);
+    UI.battle.showResult(rewards, this.enc, towerWin);
   } else {
     const r = G.applyDefeat();
     UI.battle.showDefeat(r);
