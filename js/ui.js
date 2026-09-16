@@ -100,7 +100,87 @@ UI.renderAll = function(){
   el('expbar-text').textContent = h.lv >= D.MAX_LV ? '已满级' : `经验 ${h.exp} / ${need}`;
   el('bag-count').textContent = G.state.inv.length || '';
   el('sp-count').textContent = h.skillPoints || '';
-  ({ map:UI.renderMap, hero:UI.renderHero, bag:UI.renderBag, skill:UI.renderSkill, forge:UI.renderForge, shop:UI.renderShop })[this.tab].call(UI);
+  ({ map:UI.renderMap, hero:UI.renderHero, bag:UI.renderBag, skill:UI.renderSkill, forge:UI.renderForge, shop:UI.renderShop, tower:UI.renderTower, ach:UI.renderAch })[this.tab].call(UI);
+};
+
+/* ================= 试炼塔页 ================= */
+UI.renderTower = function(){
+  const s = G.state, tw = s.tower;
+  const unlocked = G.towerUnlocked();
+  const fl = tw.floor;
+  el('tab-tower').innerHTML = `
+    <div class="card">
+      <div class="tower-hero">
+        <div style="font-size:40px">🗼</div>
+        <h3 style="color:#8a6a10">无尽试炼塔</h3>
+        ${unlocked ? `
+          <div class="tower-floor">第 ${fl} 层</div>
+          <div class="tower-best">历史最高纪录：第 ${tw.best} 层</div>
+          <button class="btn btn-primary" id="btn-tower-go" style="font-size:17px;padding:12px 34px">⚔️ 挑战第 ${fl} 层</button>
+          <div class="tower-info">
+            怪物等级 Lv.${D.towerLv(fl)}　·　每层胜利都有金币层奖励<br>
+            每 3 层额外材料 · 每 5 层试炼守卫 · 每 10 层层主（必掉紫/橙装备）<br>
+            层数越高怪物越强，失败无惩罚，随时可以再挑战
+          </div>
+        ` : `
+          <div class="tower-best" style="font-size:15px;margin-top:10px">🔒 尚未解锁</div>
+          <div class="tower-info">击败任意一个「关卡大Boss」后，试炼塔大门将为你打开。<br>塔中没有尽头，层数越高奖励越丰厚！</div>
+        `}
+      </div>
+    </div>`;
+  const go = el('btn-tower-go');
+  if (go) go.onclick = ()=>{ if (!B.active) B.start(G.towerEnc()); };
+};
+
+/* ================= 成就 / 图鉴页 ================= */
+UI.renderAch = function(){
+  const s = G.state;
+  const newly = G.checkAch();   // 旧档补发成就
+  if (newly && newly.length) G.save();
+  const doneCount = D.ACHIEVEMENTS.filter(a=>s.ach[a.id]).length;
+  const achCards = D.ACHIEVEMENTS.map(a=>{
+    const done = !!s.ach[a.id];
+    let cur = 0, target = 1;
+    try { [cur, target] = a.prog(s); } catch(e){}
+    const rewardTxt = a.reward ? [
+      a.reward.gold ? `💰${a.reward.gold}` : '',
+      a.reward.mats ? Object.keys(a.reward.mats).map(k=>`${D.MATS[k].icon}×${a.reward.mats[k]}`).join(' ') : '',
+    ].filter(Boolean).join(' ') : '';
+    return `<div class="card ach-card ${done?'':'locked'}">
+      <span class="ach-icon">${a.icon}</span>
+      <div>
+        <div class="ach-name">${a.name} ${done?'<span class="ach-done">✓ 已达成</span>':''}</div>
+        <div class="ach-desc">${a.desc}</div>
+        ${done ? '' : `<div class="ach-prog">${Math.min(cur,target)} / ${target}</div>`}
+        <div class="ach-reward">奖励：${rewardTxt}</div>
+      </div>
+    </div>`;
+  }).join('');
+  // 图鉴
+  const codexMaps = D.MAPS.map(m=>{
+    const mons = [...m.monsters, m.elite, m.boss, m.darkgold, m.stage, ...(m.final?[m.final]:[])];
+    const cells = mons.map(mn=>{
+      const k = s.codex[mn.name]||0;
+      return `<div class="codex-cell ${k?'':'unknown'}"><span class="ci">${k?mn.icon:'❔'}</span>${mn.name}<div class="ck">${k?`击杀 ${k}`:'未发现'}</div></div>`;
+    }).join('');
+    return `<div class="codex-map"><h3 style="color:#6b5316;font-size:14.5px;margin-bottom:8px">${m.icon} ${m.name}</h3><div class="codex-row">${cells}</div></div>`;
+  }).join('');
+  // 试炼塔图鉴
+  const towerMons = [...D.TOWER_MOBS, ...D.TOWER_MASTERS.map(n=>({ name:'层主·'+n, icon:'🏰' }))];
+  const towerCells = towerMons.map(mn=>{
+    const k1 = s.codex[mn.name]||0;
+    const k2 = s.codex['精英·'+mn.name]||0;
+    const k = Math.max(k1, k2);
+    return `<div class="codex-cell ${k?'':'unknown'}"><span class="ci">${k?mn.icon:'❔'}</span>${mn.name}<div class="ck">${k?`击杀 ${k1+k2}`:'未发现'}</div></div>`;
+  }).join('');
+  const codexTotal = Object.keys(s.codex).length;
+  el('tab-ach').innerHTML = `
+    <div class="card" style="margin-bottom:10px"><b>🏆 成就 ${doneCount}/${D.ACHIEVEMENTS.length}</b>　<span style="color:var(--ink2);font-size:13px">达成成就可领取金币与材料奖励</span></div>
+    <div class="ach-grid">${achCards}</div>
+    <div class="card" style="margin:14px 0 10px"><b>📖 怪物图鉴</b>　<span style="color:var(--ink2);font-size:13px">已发现 ${codexTotal} 种怪物</span></div>
+    <div class="card">${codexMaps}
+      <div class="codex-map"><h3 style="color:#6b5316;font-size:14.5px;margin-bottom:8px">🗼 无尽试炼塔</h3><div class="codex-row">${towerCells}</div></div>
+    </div>`;
 };
 
 /* ================= 地图页 ================= */
@@ -468,7 +548,14 @@ UI.battle.show = function(){
   el('battle-log').innerHTML = '';
   el('battle-sub').classList.add('hidden');
   el('battle-actions').innerHTML = '';
+  this.optsRefresh();
   this.refresh();
+};
+UI.battle.optsRefresh = function(){
+  const st = G.state.settings;
+  el('btn-speed').textContent = `⚡ ${st.speed}x`;
+  el('btn-auto').textContent = `🤖 自动:${st.auto ? '开' : '关'}`;
+  el('btn-auto').classList.toggle('on', !!st.auto);
 };
 UI.battle.hide = function(){
   el('battle-overlay').classList.add('hidden');
@@ -604,10 +691,13 @@ UI.battle.pickTarget = function(alive, cb){
 };
 
 /* 胜利结算 */
-UI.battle.showResult = function(r, enc){
+UI.battle.showResult = function(r, enc, towerWin){
   const drops = r.drops.map(it=>`<div>🎁 <b class="q${it.q}">${D.SLOTS[it.slot].icon} ${it.name}</b> <span style="font-size:12px;color:var(--ink2)">（${D.QUALITY[it.q].name} · Lv.${it.ilv}）</span></div>`).join('');
   const ups = r.ups.length ? `<div class="log-sys" style="font-size:16px">🎉 升级！达到 Lv.${r.ups[r.ups.length-1]}（+${r.ups.length*3} 属性点 +${r.ups.length} 技能点，状态全满）</div>` : '';
   let extra = '';
+  if (towerWin){
+    extra += `<div class="log-sys" style="font-size:15px">🗼 通过第 ${enc.floor} 层！层奖励 💰+${towerWin.bonusGold}${towerWin.matsTxt.length?`　${towerWin.matsTxt.join('　')}`:''}</div>`;
+  }
   if (enc.type === 'stage'){
     const m = G.curMap(), idx = D.MAPS.indexOf(m);
     extra = idx+1 < D.MAPS.length ? `<div class="log-sys" style="font-size:15px">🗺️ 新地图「${D.MAPS[idx+1].icon}${D.MAPS[idx+1].name}」已解锁！</div>` : `<div class="log-sys" style="font-size:15px">🐲 终极Boss「苍穹龙王」已在神殿之巅现身！</div>`;
@@ -622,8 +712,17 @@ UI.battle.showResult = function(r, enc){
       <div>📈 经验 <b style="color:var(--exp)">+${r.exp}</b>　💰 金币 <b style="color:var(--gold)">+${r.gold}</b></div>
       ${ups}${drops || '<div style="color:var(--ink2)">（没有装备掉落）</div>'}${extra}
     </div>
-    <div class="result-btns"><button class="btn btn-primary" id="m-win">继续冒险</button></div>`);
+    <div class="result-btns">
+      ${towerWin ? '<button class="btn btn-red" id="m-next-floor">⚔️ 继续挑战下一层</button>' : ''}
+      <button class="btn btn-primary" id="m-win">${towerWin ? '回城休整' : '继续冒险'}</button>
+    </div>`);
   el('m-win').onclick = ()=>{ UI.closeModal(); B.leave(); };
+  const nf = el('m-next-floor');
+  if (nf) nf.onclick = ()=>{
+    UI.closeModal();
+    B.leave();
+    B.start(G.towerEnc());   // floor 已 +1
+  };
 };
 
 UI.battle.showDefeat = function(r){
