@@ -33,6 +33,9 @@ G.newGame = function(){
     maps:{}, pity:0, explores:0,
     stats:{ kills:0, elite:0, boss:0, darkgold:0, stage:0, deaths:0, enhanced:0, crafted:0 },
     flags:{ gameClear:false },
+    ach:{}, codex:{},
+    tower:{ floor:1, best:0 },
+    settings:{ speed:1, auto:false },
     createdAt: Date.now(), playSec:0,
   };
   D.MAPS.forEach((m,i)=>{ this.state.maps[m.id] = { unlocked: i===0, prog:0, stageKilled:false }; });
@@ -71,7 +74,21 @@ G.load = function(){
     s.gold = Math.max(0, Number(s.gold)||0);
     if (!s.inv || !Array.isArray(s.inv)) s.inv = [];
     if (!s.pity) s.pity = 0;
+    // 旧档迁移：补齐 v2 字段
+    if (!s.ach) s.ach = {};
+    if (!s.codex) s.codex = {};
+    if (!s.tower) s.tower = { floor:1, best:0 };
+    if (!s.settings) s.settings = { speed:1, auto:false };
     this.state = s;
+    // 离线收益：最多按 8 小时计
+    const away = Date.now() - (Number(s.savedAt) || Date.now());
+    if (away > 5*60*1000){
+      const mins = Math.min(480, Math.floor(away/60000));
+      const gold = Math.round(mins * (4 + h.lv*1.2));
+      const exp = Math.round(mins * (3 + h.lv*1.0));
+      s.offline = { mins, gold, exp };
+      s.gold += gold;
+    }
     return true;
   } catch(e){ console.warn('读档失败，开新档', e); return false; }
 };
@@ -306,6 +323,7 @@ G.enhance = function(id){
   else { it.plus = Math.max(0, (it.plus||0) + D.enhanceFail(it.plus||0)); }
   const st = this.calcHero();
   s.hero.hp = Math.min(s.hero.hp, st.maxHp);
+  this.checkAch();
   this.save();
   return { ok, rate, item:it, msg: ok ? `强化成功！${it.name} +${it.plus}` : `强化失败…${D.enhanceFail(it.plus)!==0?'等级 -1':'等级不变'}` };
 };
@@ -336,6 +354,7 @@ G.craft = function(slot, dark){
   else { const r = Math.random()*100; q = r<30?1 : r<65?2 : r<87?3 : 4; }
   const it = this.genItem(s.hero.lv, q, slot);
   this.addItem(it); s.stats.crafted++;
+  this.checkAch();
   this.save();
   return { ok:true, item:it };
 };
@@ -489,9 +508,11 @@ G.applyRewards = function(foes){
   });
   const g = this.gainGold(gold);
   const e = this.gainExp(exp);
+  this.checkAch();
   // 统计与解锁
   foes.forEach(f=>{
     s.stats.kills++;
+    if (f.name) s.codex[f.name] = (s.codex[f.name]||0) + 1;
     if (f.tier === 'elite') s.stats.elite++;
     if (f.tier === 'boss') s.stats.boss++;
     if (f.tier === 'darkgold') s.stats.darkgold++;
@@ -524,4 +545,85 @@ G.rest = function(){
   const st = this.calcHero();
   this.state.hero.hp = st.maxHp; this.state.hero.mp = st.maxMp;
   this.save();
+};
+
+/* ---------- 成就 ---------- */
+G.checkAch = function(){
+  const s = this.state;
+  if (!s || !D.ACHIEVEMENTS) return;
+  const newly = [];
+  D.ACHIEVEMENTS.forEach(a=>{
+    if (s.ach[a.id]) return;
+    let cur;
+    try { cur = a.prog(s)[0]; } catch(e){ return; }
+    if (cur >= a.prog(s)[1]){
+      s.ach[a.id] = Date.now();
+      if (a.reward){
+        if (a.reward.gold) s.gold += a.reward.gold;
+        if (a.reward.mats) for (const k in a.reward.mats) s.mats[k] = (s.mats[k]||0) + a.reward.mats[k];
+      }
+      newly.push(a);
+    }
+  });
+  if (newly.length && typeof UI !== 'undefined'){
+    newly.forEach(a=> UI.toast(`🏆 成就达成「${a.name}」${a.reward && a.reward.gold ? ` +${a.reward.gold}金` : ''}`));
+  }
+  return newly;
+};
+
+/* ---------- 无尽试炼塔 ---------- */
+G.towerUnlocked = function(){ return this.state.stats.stage >= 1; };
+
+G.towerEnc = function(){
+  const s = this.state, fl = s.tower.floor;
+  const lv = D.towerLv(fl);
+  const foes = [];
+  const mk = (tier, src) => {
+    const t = D.TIERS[tier];
+    const base = D.monsterBase(lv, src.mod);
+    return {
+      tier, name: src.name, icon: src.icon, lv,
+      stats: {
+        maxHp: Math.round(base.hp * t.hp), atk: Math.round(base.atk * t.atk),
+        def: Math.round(base.def * t.def), spd: Math.round(base.spd * t.spd),
+      },
+      skills: (src.skills||[]).map(sk=>({ ...sk })),
+      exp: Math.round(base.exp * t.exp), gold: Math.round(base.gold * t.gold),
+      ilv: lv + t.ilvBonus,
+    };
+  };
+  if (fl % 10 === 0){
+    // 层主：大关卡级
+    const master = { name:`第${fl}层层主·${D.TOWER_MASTERS[(fl/10-1) % D.TOWER_MASTERS.length]}`, icon:'🏰', mod:{},
+      skills:[{name:'层主重击',mult:2.0,cd:3},{name:'塔之威压',mult:1.5,cd:4,stun:0.4}] };
+    foes.push(mk('stage', master));
+  } else if (fl % 5 === 0){
+    const boss = { name:`试炼守卫·${G.pick(D.TOWER_MOBS).name}`, icon:'🛡️', mod:{hp:1.1},
+      skills:[{name:'守卫猛击',mult:1.7,cd:3}] };
+    foes.push(mk('boss', boss));
+  } else {
+    const n = Math.min(3, 1 + Math.floor(fl/8) + G.ri(0,1));
+    for (let i=0;i<n;i++) foes.push(mk('normal', G.pick(D.TOWER_MOBS)));
+    if (fl >= 6 && Math.random() < 0.3) foes[0] = mk('elite', { ...G.pick(D.TOWER_MOBS), name:'精英·'+G.pick(D.TOWER_MOBS).name });
+  }
+  return { type:'tower', floor:fl, foes };
+};
+
+/* 试炼层胜利结算（在 applyRewards 之后调用） */
+G.applyTowerWin = function(fl){
+  const s = this.state;
+  const bonusGold = this.gainGold(fl * 25);
+  let matsTxt = [];
+  if (fl % 3 === 0){ s.mats.iron += 2; s.mats.hide += 1; matsTxt.push('⛏️精铁×2 🟫兽皮×1'); }
+  if (fl % 5 === 0){ s.mats.crystal += 2; s.mats.enhance += 1; matsTxt.push('💎魔晶×2 🔮强化石×1'); }
+  if (fl % 10 === 0){
+    const it = this.genItem(D.towerLv(fl), Math.random()<0.5?3:4);
+    this.addItem(it);
+    matsTxt.push(`🎁 ${it.name}`);
+  }
+  s.tower.floor = fl + 1;
+  s.tower.best = Math.max(s.tower.best, fl);
+  this.checkAch();
+  this.save();
+  return { bonusGold, matsTxt };
 };
