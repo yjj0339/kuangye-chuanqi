@@ -50,6 +50,8 @@
     <button class="tab" data-tab="skill">✨ 技能 <span id="sp-count" class="badge"></span></button>
     <button class="tab" data-tab="forge">🔨 锻造</button>
     <button class="tab" data-tab="shop">🏪 商店</button>
+    <button class="tab" data-tab="tower">🗼 试炼</button>
+    <button class="tab" data-tab="ach">🏆 成就</button>
   </nav>
 
   <main id="main">
@@ -59,6 +61,8 @@
     <section id="tab-skill" class="panel hidden"></section>
     <section id="tab-forge" class="panel hidden"></section>
     <section id="tab-shop" class="panel hidden"></section>
+    <section id="tab-tower" class="panel hidden"></section>
+    <section id="tab-ach" class="panel hidden"></section>
   </main>
 </div>
 
@@ -68,6 +72,10 @@
     <div id="battle-head">
       <span id="battle-round">第 1 回合</span>
       <span id="battle-turn" class="battle-turn"></span>
+      <span id="battle-opts">
+        <button class="btn btn-mini" id="btn-speed" title="战斗速度">⚡ 1x</button>
+        <button class="btn btn-mini" id="btn-auto" title="自动战斗">🤖 自动:关</button>
+      </span>
     </div>
     <div id="enemy-row"></div>
     <div id="battle-mid">
